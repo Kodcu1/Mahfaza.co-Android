@@ -1,0 +1,593 @@
+Anladım. İstediğin şey yalnızca öğrenci ekranını güzelleştirmek değil; eski Mahfaza'nın canlılığını geri getiren, öğrenciyi çalışmaya motive eden, koçla öğrenciyi birbirine bağlayan ve ödül sistemini doğru işleten eksiksiz bir öğrenci deneyimi.
+
+Önceki V12.0 tasarım ve animasyon komutunu, V13.0 öğrenci özelliklerini ve yeni motivasyon, rozet, Pomodoro, mesajlaşma ve koç kodu gereksinimlerini tek bir master komutta birleştirdim. Ayrıca önemli bir güvenlik kuralı ekledim: Öğrenci ödül talep ettiğinde XP kesinlikle düşmeyecek; yalnızca koç onayladığında düşecek ve aynı talep ikinci kez işlenemeyecek.
+
+Aşağıdaki komutu mevcut Google AI Studio Mahfaza projesinin Chat alanına tek seferde gönder.
+
+# MAHFAZA.CO V14.0 — ULTIMATE STUDENT EXPERIENCE & PREMIUM ACADEMIC ECOSYSTEM
+## STUDENT REDESIGN + COACH MATCHING + XP ECONOMY + POMODORO + MESSAGING + MOTIVATION + PREMIUM MOTION
+
+You are the Senior Android Architect, Kotlin/Jetpack Compose Lead, Product Designer, and QA Engineer responsible for completing the EXISTING Mahfaza.co Android application.
+
+The project currently uses Kotlin, Jetpack Compose, Material 3, Room, DAOs, repositories, ViewModels, StateFlow, and Navigation Compose.
+
+The current student experience is incomplete, insufficiently engaging, and visually weaker than the intended original Mahfaza.co experience. There is also a critical reward redemption bug: XP is deducted as soon as a student requests a reward.
+
+Your task is to integrate the complete student experience with the existing coach application and shared business logic.
+
+**This is one unified implementation directive. Inspect the actual source, implement the code, run builds and tests, fix defects, and report evidence. Do not stop after a plan or a generic summary. Do not recreate the application from scratch.**
+
+---
+
+# 1. NON-NEGOTIABLE PROJECT RULES
+
+Before editing:
+- Inspect the existing source files, database entities, DAOs, repositories, ViewModels, navigation graph, authentication/session mechanism, profile-photo handling, XP ledger, rewards, tasks, weekly planner, parent meetings, and messaging implementation.
+- Reuse working code and existing models whenever possible.
+- Do not create duplicate routes, models, repositories, or competing state-management systems.
+- Preserve existing student and coach records, weekly programs, exam results, meetings, XP history, rewards, messages, and profile photos.
+- Keep the current local Room architecture. Do not connect Supabase or add external API keys in this task.
+- Do not use destructive Room migrations to hide schema mismatches.
+- Add proper versioned migrations for necessary schema changes.
+- Do not create misleading fake data or display simulated values as real student achievements.
+- Keep UI animation code separate from database transactions and business logic.
+- Do not claim that a feature is implemented simply because the project compiles.
+
+When the existing architecture conflicts with this directive, preserve working functionality and make the smallest safe integration change.
+
+# 2. CRITICAL XP BUG — REWARD REQUESTS MUST WAIT FOR COACH APPROVAL
+
+The current defect is that tapping “Ödülü Talep Et” immediately decreases the student's XP balance. This must be corrected first.
+
+## Required request lifecycle
+
+Use the existing redemption model if suitable. Otherwise introduce a persistent request entity with an explicit lifecycle such as:
+
+`PENDING → APPROVED`
+
+or
+
+`PENDING → REJECTED`
+
+A request may only transition from `PENDING` once.
+
+### Student action: request reward
+When a student requests a reward:
+1. Validate that the reward exists and is active.
+2. Validate that sufficient `currentXp` is available for a request.
+3. Validate that the reward has available stock.
+4. Create a persistent pending request.
+5. Do NOT deduct `currentXp`.
+6. Do NOT decrease stock.
+7. Show “Talebin koçuna iletildi” only after the request is successfully saved.
+8. Display the request as “Koç Onayı Bekleniyor.”
+9. Prevent accidental duplicate requests caused by repeated taps or recomposition.
+
+A pending request must never be presented as an approved redemption.
+
+### Coach action: approve reward
+When the coach approves a pending request, use one atomic Room transaction:
+1. Reload the request and verify that its status is still `PENDING`.
+2. Verify that the reward is still valid and active according to the existing business rules.
+3. Verify that stock is sufficient.
+4. Verify that the student still has enough `currentXp`.
+5. Deduct the reward's XP cost from `currentXp` exactly once.
+6. Leave `lifetimeXp` unchanged.
+7. Decrease stock exactly once.
+8. Write the appropriate persistent XP ledger entry.
+9. Mark the request `APPROVED`.
+10. Commit the changes together.
+
+If any step fails, roll back the entire transaction. Do not partially deduct XP or stock.
+
+### Coach action: reject reward
+- Verify that the request is still `PENDING`.
+- Mark it `REJECTED`.
+- Do not deduct XP.
+- Do not decrease stock.
+- Do not delete the request history.
+
+### Idempotency and consistency
+- Use a unique request ID and a persistent transaction/source key or equivalent idempotency protection.
+- Prevent duplicate approval and duplicate charges.
+- Prevent a second coach action from processing a request already approved or rejected.
+- Prevent stock from becoming negative.
+- Do not rely on a disabled button or `@Transaction` alone for idempotency.
+- Test simultaneous or repeated approval attempts at the repository/business-logic level where practical.
+
+### Required UI behavior
+The student reward card must show:
+- Available reward.
+- XP cost.
+- Stock status.
+- Request action.
+- Pending status after requesting.
+- Approved/rejected status when the coach acts.
+
+The coach must see the request under the existing “Ödül Talepleri” section of Reward Management.
+
+**Acceptance criterion:** Requesting a reward leaves `currentXp` and stock unchanged. Only a successful coach approval decreases both once.
+
+# 3. PREMIUM STUDENT NAVIGATION — LEFT DRAWER
+
+The student experience must use a left-side hamburger navigation drawer similar to the coach interface.
+
+## Navigation requirements
+- Remove the student bottom navigation bar if it conflicts with the requested drawer design.
+- Add a visible three-line menu icon at the top left of the student app.
+- Tapping the icon opens a polished `ModalNavigationDrawer`.
+- The drawer must show the student avatar, name, exam level, current XP, and streak when available.
+- Provide clear section icons, active-route highlighting, subtle animations, and readable labels.
+- Close the drawer appropriately after selecting a destination.
+- Preserve navigation state and avoid duplicate destinations on the back stack.
+
+## Required student destinations
+1. Ana Sayfa
+2. Profilim
+3. Haftalık Programım
+4. Çalışma Kayıtlarım
+5. Deneme Analizleri
+6. Pomodoro Odaklanma
+7. Rozetler ve Başarılar
+8. Ödül Mağazası
+9. Mesajlar
+10. Koçum
+11. Ayarlar, if supported by the existing architecture
+12. Çıkış Yap
+
+Use distinct destinations and actual screen composables. Do not route every menu item to the same placeholder.
+
+Retain any existing useful student destinations that do not conflict with this structure.
+
+# 4. PREMIUM STUDENT DASHBOARD — THE RETURN OF OLD MAHFAZA
+
+The student home screen must feel lively, rewarding, modern, and academically focused.
+
+Use the established Mahfaza.co identity:
+- Navy: `#233B5D`
+- Deep navy: `#172B4D`
+- Gold: `#D97706`
+- Teal: `#0F766E`
+- Violet: `#7C3AED`
+- Success green: `#059669`
+- Background: `#F1F5F9`
+- White card surfaces with restrained tinted sections
+- High-contrast text and accessible controls
+
+Avoid a plain white list of labels. Avoid childish, cluttered, or excessively flashy design.
+
+## Dashboard sections
+
+### A. Motivational welcome banner
+- Display the student's actual name.
+- Show a short Turkish motivational message.
+- Use a navy gradient, gold accent, and a refined illustration or icon treatment.
+- Show a daily focus suggestion or next action based on real saved data where possible.
+
+### B. Progress summary
+Use colorful, elevated cards for:
+- Today's completed tasks.
+- Weekly task completion.
+- Current XP.
+- Current streak.
+- Recent exam performance, where available.
+
+All values must be derived from actual repository records. Do not hardcode success rates or XP values.
+
+### C. Today's focus
+- Show real tasks assigned to the student.
+- Highlight the next incomplete task.
+- Provide a clear route to the weekly program or task details.
+- Display useful empty states when no tasks exist.
+
+### D. Achievements
+- Show earned badges and the student's progress toward the next real achievement.
+- Include a clear “Tüm Rozetler” action.
+- Use tasteful celebratory effects when a new achievement is genuinely earned.
+
+### E. Quick actions
+Provide useful actions for:
+- Start Pomodoro.
+- Open weekly plan.
+- Record or view study tasks.
+- Review exam results.
+- Open the reward store.
+- Message the assigned coach.
+
+Each action must navigate to its actual destination.
+
+# 5. STUDENT PROFILE — A REAL ACADEMIC PROFILE, NOT A TEST SCREEN
+
+Replace the weak student profile/simulation interface with a complete editable academic profile.
+
+Remove simulation/test buttons such as “Öğrenci Rolüne Geç” from the ordinary student profile. Keep developer-only tools out of normal user-facing screens.
+
+## Profile header
+- Persistent profile photo.
+- Student name.
+- Exam track: LGS or YKS.
+- Grade or preparation status, where supported.
+- Current XP and streak.
+- Coach assignment status.
+- Clear “Profili Düzenle” action.
+
+Use the existing persistent profile-photo system. If it exists, reuse it rather than implementing a second image-storage mechanism.
+
+## Editable profile fields
+Include suitable fields for:
+- Full name.
+- Profile photo.
+- Exam track: LGS or YKS.
+- Grade/class or preparation status.
+- Target university.
+- Target department/program.
+- Target exam year.
+- Target score/ranking, if the student wishes to enter it.
+- Personal academic goals.
+- Preferred study priorities.
+- Optional short personal introduction.
+
+Collect additional contact or personal information only when it is necessary and appropriate. Do not require sensitive information that the application does not need.
+
+### Persistence
+- Save profile edits through the existing Room/repository architecture.
+- Validate required fields.
+- Preserve entered data after navigation and app restart.
+- Provide explicit save/cancel behavior and clear success/error feedback.
+- Use versioned Room migrations for any new persisted fields.
+- Never reset the database to make new fields appear.
+
+### Profile photo
+- Use the system photo picker.
+- Persist the selected image using the existing safe local-copy strategy if implemented.
+- Ensure the image remains available after process death and application restart.
+- Show the same photo consistently in the dashboard, drawer, profile, and coach portfolio.
+- Provide a graceful initials fallback if no photo is available.
+
+# 6. COACH CODE — STUDENT REGISTRATION AND COACH MATCHING
+
+Implement a real, persistent coach-student linking system within the existing local architecture.
+
+Do not assume a local demo database provides secure cross-device registration. Keep the limitations explicit.
+
+## Coach code
+- Every coach must have a unique, persistent coach code.
+- Generate the code safely and ensure uniqueness using a database constraint or equivalent check.
+- Example format: `KOC-AB12CD`.
+- Do not generate a new code every time the profile screen opens.
+- Display the code in the coach profile.
+- Provide a copy button with feedback.
+- Allow the coach to view the code clearly.
+
+If a coach does not have a code, create and persist one using a safe repository operation.
+
+## Student onboarding
+During student registration or the initial onboarding/profile flow, provide:
+- “Koç Kodunu Gir” field.
+- “Koça Bağlan” action.
+- Validation and understandable errors.
+
+On valid code:
+1. Find the actual coach record by code.
+2. Verify that the coach is eligible for student assignments according to the existing role model.
+3. Create the coach-student relationship through the repository.
+4. Prevent duplicate links.
+5. Confirm the assigned coach in the student's profile and drawer.
+6. Make the student visible in that coach's portfolio.
+7. Ensure the coach can access the student's relevant records through the existing ownership rules.
+
+Handle:
+- Empty or invalid code.
+- Code belonging to no coach.
+- Student already assigned to a coach.
+- Duplicate linking.
+- Reconnection or reassignment according to explicit existing business rules.
+
+Do not silently move a student between coaches. If reassignment is supported, require a clear confirmation and update relationships consistently.
+
+## Local-only limitation
+The app currently uses Room/local data. A code stored in one device's local database cannot automatically identify a coach stored only on another device.
+
+Implement the complete local matching flow for the existing demo architecture, and clearly report that real cross-device matching requires a shared authenticated backend. Do not fake cross-device connectivity or claim local matching is internet-wide.
+
+Do not introduce Supabase in this directive.
+
+# 7. POMODORO — FOCUS AND STUDY TIMER
+
+Implement a complete student Pomodoro module in `PomodoroScreen.kt` or the existing equivalent.
+
+## Default cycle
+- Focus: 25 minutes.
+- Short break: 5 minutes.
+- Optional long break: 15 minutes after a configurable number of completed focus sessions, if implemented safely.
+
+## Interface
+- Large animated circular timer.
+- Visible current mode: Odaklanma, Kısa Mola, or Uzun Mola.
+- Start, Pause, Resume, Reset, and Skip controls as appropriate.
+- Session progress indicator.
+- Completed focus session count.
+- Accessible colors and readable time display.
+- Refined navy, teal, and gold visual treatment.
+
+Allow the student to customize focus and break durations within sensible bounds.
+
+## Timer correctness
+- Use lifecycle-aware timing rather than decrementing a counter on every recomposition.
+- Use a monotonic time source or equivalent deadline-based approach to avoid drift.
+- Do not create multiple concurrent timers after recomposition or navigation.
+- Cancel coroutine jobs when the ViewModel or session ends.
+- Correctly handle pause, resume, reset, and mode transitions.
+- Avoid keeping the device awake indefinitely or using battery-intensive continuous animation.
+- If background operation is not implemented, clearly pause or restore state according to a consistent documented behavior.
+
+## Study records
+- Only record a completed focus session after it actually finishes or the user explicitly confirms completion according to the design.
+- Prevent duplicate session records.
+- Persist completed session history if supported by the existing architecture.
+- Show session statistics from actual stored records.
+- Do not automatically award XP unless an explicit existing rule permits it; if XP is awarded, use the same idempotent XP transaction rules.
+
+# 8. LIVE-STYLE MESSAGING — STUDENT AND COACH
+
+The student currently lacks a functioning message destination. Inspect existing message models, DAO, repository, and coach messaging UI before implementation.
+
+## Student interface
+Create or complete `StudentMessagesScreen.kt`:
+- Message list grouped by conversation.
+- Clear sent and received message bubbles.
+- Timestamp formatting.
+- Text input and send action.
+- Loading, empty, and failure states.
+- Scroll to the latest message when appropriate.
+- Update the conversation after a successful send.
+- Keep keyboard and input behavior usable on mobile.
+
+## Permissions and conversation rules
+- A student can message only their assigned coach.
+- A coach can message only students assigned to that coach.
+- Do not expose unrelated students' messages.
+- Validate conversation ownership in repository operations.
+- Do not fabricate online indicators, read receipts, or delivery confirmations.
+
+## Persistence
+- Persist messages using Room.
+- Ensure the student and coach screens use the same underlying conversation records.
+- Messages must survive navigation and app restart.
+- Update the existing coach messaging screen to show the corresponding student conversation.
+- Handle repeated taps and empty messages appropriately.
+
+## Meaning of “live”
+With a local Room database, messaging can update instantly within the same local dataset, but it is not true real-time messaging across separate devices.
+
+Implement working local persistence and reactive UI updates now. Clearly state that real cross-device live messaging requires a shared backend and synchronization. Do not pretend that Room alone synchronizes devices.
+
+# 9. BADGES, ACHIEVEMENTS, STREAKS, AND MOTIVATION
+
+Create a dedicated “Rozetler ve Başarılar” screen and integrate it into the student dashboard.
+
+## Badge design
+Use visually distinct badge categories:
+- İlk Adım
+- Disiplin
+- Paragraf Ustası
+- Deneme Takipçisi
+- Program Tamamlayıcı
+- Odaklanma Ustası
+- İstikrar
+- XP Ustası
+
+Use existing project rules if equivalents already exist. Define clear, testable unlock criteria for any new badge.
+
+Examples of possible criteria:
+- İlk Adım: first eligible task completed.
+- Disiplin: a defined streak threshold reached.
+- Deneme Takipçisi: a defined number of exam records saved.
+- Odaklanma Ustası: a defined number of completed focus sessions.
+- Program Tamamlayıcı: a defined number of assigned tasks completed.
+- Paragraf Ustası: a defined number of qualifying paragraph tasks completed.
+
+Do not award a badge simply because the dashboard renders. Achievements must be derived from persistent evidence.
+
+## Achievement screen
+- Show earned and locked badges.
+- Explain the unlock requirement for locked badges.
+- Show progress toward the next milestone when it can be calculated from real records.
+- Use refined illustrations/icons, colored surfaces, and animated progress.
+- Celebrate a newly unlocked badge once, after the actual achievement is recorded.
+- Do not replay the same celebration on every recomposition or app restart.
+- Persist badge unlocks or use a deterministic, idempotent achievement engine.
+
+## Streak rules
+- Derive streaks from valid activity dates.
+- Prevent duplicate activity events from inflating streaks.
+- Use the project's existing timezone conventions where available.
+- Do not reset or inflate a streak simply because the screen was reopened.
+
+# 10. MOTIVATIONAL MESSAGES — EVERY MAJOR ENTRY
+
+The student should receive short, varied, positive Turkish motivational messages when entering the application and selected major sections.
+
+Use an internal, original message collection. Examples:
+- “Bugün attığın küçük adım, yarınki büyük başarının parçası.”
+- “Mükemmel olmak zorunda değilsin; bugün dünden biraz daha iyi ol.”
+- “Her soru, hedefine bir adım daha yaklaşmak demek.”
+- “İstikrar, motivasyonun azaldığı günlerde de devam edebilmektir.”
+- “Hedefini hatırla, bugünkü görevine odaklan.”
+- “Bir mola ver, nefes al ve yeniden başla.”
+- “Başarı tek bir günde değil, tekrar ettiğin doğru alışkanlıklarda büyür.”
+- “Denemeler sadece sonucunu değil, bir sonraki hamleni de gösterir.”
+
+## Display rules
+- Show a tasteful motivational banner or card on student dashboard entry.
+- Optionally show context-specific messages when entering Pomodoro, weekly plan, exam analysis, or achievements.
+- Use a curated local list; no external AI API is needed.
+- Avoid showing a disruptive full-screen popup every time the user navigates.
+- Rotate messages deterministically or randomly without immediate repetition.
+- Keep text appropriate, inclusive, non-shaming, and encouraging.
+- Never imply that a student's worth depends on grades, XP, streaks, or university admission.
+- Avoid false claims about guaranteed exam results.
+
+A motivational message must not block the student's actual work.
+
+# 11. PREMIUM MOTION AND COLOR SYSTEM
+
+Apply the existing V12 palette consistently:
+- Background `#F1F5F9`
+- Primary navy `#233B5D`
+- Deep navy `#172B4D`
+- Gold `#D97706`
+- Violet `#7C3AED`
+- Teal `#0F766E`
+- Success `#059669`
+- Danger `#DC2626`
+- White and lightly tinted card surfaces
+
+Use reusable Compose animation patterns where appropriate:
+- `AnimatedVisibility`
+- `animateContentSize`
+- `animateColorAsState`
+- `animateFloatAsState`
+- `AnimatedContent` or `Crossfade`
+- Small staggered entrance animations
+- Animated progress indicators
+- Press-state feedback
+- Short success effects
+
+Guidelines:
+- Most micro-animations should be around 150–350 ms.
+- Use longer animations only for meaningful achievements or session transitions.
+- Avoid constant motion across every element.
+- Respect reduced-motion preferences where practical.
+- Keep all animations separate from business logic and database writes.
+- Do not sacrifice accessibility, scrolling performance, battery life, or readability for decoration.
+
+The application must feel lively and rewarding without becoming visually chaotic.
+
+# 12. PROFILE AND STUDENT DATA MUST CONNECT TO THE COACH
+
+When a student has successfully linked to a coach:
+- The coach's portfolio displays the correct student.
+- The student's profile displays the assigned coach.
+- The coach can view the student's relevant profile fields.
+- The student can message that coach.
+- The coach can access the student's tasks and submitted photo evidence according to existing rules.
+- Weekly programs are assigned to the correct student.
+- XP, reward requests, and achievements are attributed to the correct student.
+
+Prevent one student's data from being shown in another student's profile due to stale StateFlow state, incorrect route IDs, or shared cached state.
+
+Use stable student IDs, not display names, as the identity for navigation and persistence.
+
+# 13. EXISTING FEATURES THAT MUST NOT BREAK
+
+Preserve and regression-test:
+- Coach dashboard.
+- Student portfolio and 360° detail.
+- Weekly planner and PDF export.
+- Approval center and photo evidence.
+- Coach task assignment.
+- XP management and XP ledger.
+- Reward management and student reward store.
+- Parent meetings and PDF reports.
+- AI analysis based on real stored data.
+- Coach and student profile photos.
+- Logout and login navigation.
+- Room persistence and existing records.
+
+The student drawer must coexist with the coach drawer without mixing roles or navigation destinations.
+
+# 14. ROOM SCHEMA AND MIGRATIONS
+
+Inspect whether existing entities already support the requested data.
+
+Only add fields or tables that are genuinely missing, such as:
+- Student academic profile fields.
+- Coach code.
+- Persistent coach-student relationship, if not already modeled.
+- Reward request status and idempotency key, if missing.
+- Pomodoro session records, if persistence is supported.
+- Badge unlock records, if necessary.
+- Shared conversation/message references, if missing.
+
+Use explicit, versioned Room migrations and migration tests where supported.
+
+Never enable destructive migration as a shortcut. Never erase existing user data to make a new schema compile.
+
+# 15. REQUIRED TESTS
+
+Add or update tests for:
+1. Reward request does not decrease XP.
+2. Reward request does not decrease stock.
+3. Coach approval decreases `currentXp` exactly once.
+4. Coach approval leaves `lifetimeXp` unchanged.
+5. Repeated approval cannot charge twice.
+6. Rejected requests do not charge XP.
+7. Insufficient balance or stock cannot result in a successful redemption.
+8. Student drawer routes to distinct screens.
+9. Profile edits persist after reopening.
+10. Coach codes are unique and persisted.
+11. Invalid coach codes do not create relationships.
+12. Duplicate coach-student links are prevented.
+13. Student and coach see the same persisted conversation records.
+14. Unauthorized conversation access is rejected by repository logic.
+15. Pomodoro pause/resume/reset transitions behave correctly.
+16. A completed Pomodoro session cannot be recorded twice.
+17. Badge unlock conditions are evaluated correctly.
+18. Reopening a screen does not duplicate achievements.
+19. Motivational messages do not repeatedly show the same message immediately.
+20. Existing PDF, task approval, XP, reward, and Room migration tests still pass.
+
+Run the available Gradle build and tests. Clearly distinguish tests actually executed from tests that could not be run.
+
+# 16. EXECUTION ORDER
+
+Perform this work in the following order:
+
+1. Inspect current implementation and identify existing reusable code.
+2. Fix reward request/approval transactions first.
+3. Implement and test coach code and student-coach relationship.
+4. Complete student profile and persistent photo integration.
+5. Implement the student drawer and distinct navigation destinations.
+6. Build the premium student dashboard and motivational system.
+7. Implement badges and achievement progress.
+8. Implement the Pomodoro module.
+9. Complete student-coach messaging using shared Room records.
+10. Apply the premium visual system consistently.
+11. Add and run tests.
+12. Run the build and fix failures caused by the changes.
+13. Report actual completion and limitations.
+
+Do not stop after the reward fix or after updating the dashboard. Complete all modules within the scope of the existing architecture, or explicitly report any verified blocker.
+
+# 17. FINAL ACCEPTANCE REPORT
+
+Return a factual report containing:
+- Files actually changed.
+- Reward request/approval logic and test results.
+- Student profile fields implemented.
+- Coach code generation and matching behavior.
+- Student drawer routes.
+- Pomodoro timer behavior.
+- Messaging persistence and its cross-device limitations.
+- Badge criteria and persistence.
+- Motivational message behavior.
+- Room migration changes.
+- Build and test results.
+- Any remaining limitations.
+
+Do not claim true cross-device messaging or cross-device coach matching with local Room alone.
+
+Do not claim a feature works merely because a screen compiles.
+
+**START NOW. Inspect the existing Mahfaza.co source, implement the integrated student experience, preserve existing data and working coach features, run the tests, and fix all defects you can verify.**
+
+### Özellikle dikkat edeceğimiz üç nokta
+
+* Ödül sistemi: Talep gönderilince XP sabit kalacak. Koç onayladığında bir defa düşecek. Bu davranışın otomatik testle kanıtlanmasını istiyoruz.
+
+* Koç kodu ve canlı mesajlaşma: Şu anki mimari Room ise aynı cihazdaki kayıtlar çalışabilir; fakat iki ayrı telefondaki koç ve öğrenciyi gerçekten birbirine bağlamak için ileride ortak sunucu ve senkronizasyon gerekir. Bu komut, bunu çalışıyormuş gibi göstermeyi yasaklıyor.
+
+* Öğrenci motivasyonu: Her sayfaya büyük bir açılır pencere koymak yerine, renkli başarı kartları, değişen motive edici sözler, rozet ilerlemesi ve Pomodoro tamamlandığında ölçülü kutlamalar kullanıyoruz.
+
+Komutu gönderdikten sonra AI Studio'nun verdiği sonucu buraya ilet. Özellikle ödül onay işleminin kodunu ve test çıktısını kontrol ederek XP'nin gerçekten doğru yönetildiğini doğrulayabiliriz.

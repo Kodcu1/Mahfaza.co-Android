@@ -1,0 +1,585 @@
+Anladım. Mahfaza’nın mevcut çalışan yapısını bozmadan bu aşamayı bildirim sistemi + kesin XP ekonomisi + seviye/başarım sistemi + animasyonlu öğrenci ve koç deneyimi olarak tek bir master komutta birleştireceğiz.
+
+Özellikle üç kritik kural koyacağız:
+
+* XP adil ve kontrollü olacak: Öğrenci yalnızca çalışma kaydı oluşturduğu için onaylanmamış XP kazanmayacak. Koç onayından sonra puan verilecek; deneme ekleme, seviye atlama ve ödül harcama kuralları birbirine karışmayacak.
+
+* Bildirimler gerçek olaylara bağlı olacak: Görev atanınca, çalışma onaya gönderilince, çalışma onaylanınca/reddedilince, deneme girilince, yeni mesaj gelince ve seviye atlanınca doğru tarafa bildirim gidecek. Aynı olay için mükerrer bildirim üretilmeyecek.
+
+* Gelişim Raporu yalnızca koçta kalacak: Öğrenci menüsünden, ana sayfasından ve öğrenci navigasyonundan tamamen kaldırılacak; koçun öğrenci gelişimini inceleme ve PDF raporu alma işlevleri korunacak.
+
+Aşağıdaki komut, yalnızca görsel eklemek yerine XP hesaplarını, bildirim verilerini, seviye ilerlemesini ve navigasyonu da denetletir.
+
+# MAHFAZA.CO ANDROID — MASTER DIRECTIVE V16
+## Notification Center + XP Economy + Level Progression + Animated Student & Coach Experience
+
+You are working on the existing Mahfaza.co Android application in Google AI Studio. The application uses Kotlin, Jetpack Compose, Material 3, Room, Repository, ViewModel, StateFlow, and Navigation Compose.
+
+Implement this directive as a **single integrated upgrade to the existing codebase**. Do not create a new application, replace working screens unnecessarily, or introduce a parallel architecture.
+
+## 1. NON-NEGOTIABLE IMPLEMENTATION RULES
+
+1. Inspect the current source code, Room entities, DAOs, repositories, ViewModels, navigation graph, notification permissions, XP calculation, reward redemption, and existing tests before making changes.
+2. Reuse existing implementations wherever possible. Update the current files and data model rather than creating duplicate screens, repositories, entities, or navigation destinations.
+3. Keep the current local-first architecture. **Do not introduce Supabase, a remote backend, API keys, or fake cloud synchronization.**
+4. Room is the source of truth for persistent local data. Use transactions for operations that must update multiple records atomically.
+5. Preserve existing user data. Do not use destructive database migrations or wipe the Room database to make the new features work. Add proper versioned migrations.
+6. Keep all existing working modules, including login, roles, student and coach dashboards, weekly programs, study submissions, exams, task approvals, messaging, rewards, XP history, profile photos, and PDF exports.
+7. Do not claim that notifications, animations, builds, tests, or persistence work unless they have actually been implemented and verified.
+8. All user-facing text must be in natural Turkish, with correct Turkish characters.
+9. Do not leave placeholder buttons, hardcoded statistics, fake notifications, or decorative progress indicators that do not reflect real data.
+10. Before finishing, run the available build and tests, fix regressions, and provide an evidence-based implementation report.
+
+---
+
+## 2. NOTIFICATION SYSTEM — STUDENT AND COACH
+
+Build a unified notification center with role-specific content and a consistent visual design.
+
+### 2.1 Notification architecture
+
+Audit the existing Room architecture and extend it with a persistent notification entity if one does not already exist.
+
+A notification should contain, at minimum:
+
+- Unique notification ID.
+- Recipient user ID.
+- Notification type.
+- Title and short message.
+- Related entity ID, when applicable.
+- Creation timestamp.
+- Read/unread status.
+- Optional navigation destination or deep-link information.
+- An idempotency key to prevent duplicate notifications.
+
+Implement the necessary DAO, repository, ViewModel, and notification UI using the existing architectural conventions.
+
+Notifications must be stored in Room and remain available after navigating away from a screen or restarting the application.
+
+Implement a shared notification center with:
+
+- Unread notification badge.
+- Unread count derived from Room.
+- Chronological notification list.
+- Read/unread visual distinction.
+- “Tümünü Okundu İşaretle” action.
+- Individual read action.
+- Empty state with a clear illustration or icon.
+- Relevant navigation when a notification is tapped.
+- Appropriate grouping by date where practical.
+- Loading, error, and empty states.
+
+Do not display a permanently hardcoded unread count. Update the badge immediately after the underlying notification changes.
+
+Do not delete important notification history merely because a notification has been read.
+
+### 2.2 Student notification events
+
+Generate a notification for the student when:
+
+1. A coach assigns a new task.
+2. A coach publishes or updates the student's weekly program.
+3. A submitted study record is approved.
+4. A submitted study record is rejected or returned for revision, including the coach's explanation when available.
+5. An exam analysis is reviewed by the coach, if that workflow exists.
+6. A reward request is approved or rejected.
+7. The student reaches a new XP level.
+8. A badge or achievement is unlocked.
+9. A new message arrives from the assigned coach.
+10. A coach updates an assigned task or deadline.
+
+Example notification copy:
+
+- “Yeni görev: TYT Matematik — Problemler”
+- “Çalışman onaylandı! 12 XP kazandın.”
+- “Çalışman düzeltme bekliyor. Koçunun açıklamasını incele.”
+- “Tebrikler! Seviye 3'e ulaştın.”
+- “Koçundan yeni bir mesajın var.”
+- “Haftalık programın yayımlandı.”
+
+Notification copy must use actual task names, subjects, XP values, and related data. Never invent values.
+
+### 2.3 Coach notification events
+
+Generate a notification for the coach when:
+
+1. A student submits a new study record for approval.
+2. A student submits a new task with evidence.
+3. A student enters a new exam result or analysis, where applicable.
+4. A student sends a new message.
+5. A student submits a reward request.
+6. A student submits a requested revision.
+7. A student updates relevant profile or target information, if the application already supports that workflow.
+
+Examples:
+
+- “Yeni çalışma onayı bekliyor.”
+- “Melis Araz yeni bir çalışma kaydı gönderdi.”
+- “Yeni deneme sonucu girildi.”
+- “Ödül talebi incelenmeyi bekliyor.”
+- “Yeni mesajınız var.”
+
+Resolve the actual student name and relevant record from Room. Do not use generic sample names in real records.
+
+The coach notification should open the relevant destination: Approval Center, exam detail, reward requests, or messages.
+
+### 2.4 Notification integrity
+
+Every notification must be created by the relevant business operation, not by a screen recomposition or a UI animation.
+
+For example:
+
+- A successful study submission creates one coach notification.
+- Approving that study creates one student notification.
+- A level transition creates one level-up notification.
+- Opening the notification screen must never generate new notifications.
+
+Use deterministic idempotency keys based on event type and related entity ID. Prevent duplicate notifications when the user taps twice, the screen recomposes, or an operation is retried.
+
+Keep role and ownership checks consistent with the existing local user and coach-student relationships.
+
+### 2.5 In-app notifications and Android system notifications
+
+Implement both where technically appropriate:
+
+**In-app notifications:** Must work locally with Room and must not depend on Android notification permission.
+
+**Android system notifications:** Add notification channels, permission handling for Android 13 and later, and appropriate `NotificationManager` integration if the project supports it. Request permission contextually and explain why it is needed.
+
+Do not promise reliable background or remote push delivery when the application has no backend. Room notifications are local to the device. Cross-device notifications require a future backend and push infrastructure.
+
+Use `WorkManager` only for genuinely scheduled background work. Do not use a periodic worker to repeatedly simulate incoming notifications.
+
+---
+
+## 3. XP ECONOMY — ONE CENTRAL SOURCE OF TRUTH
+
+Audit every current XP-related function, including study submission, coach approval, exam creation, task completion, badges, Pomodoro, manual XP adjustments, rewards, and level calculations.
+
+Create or consolidate a single XP engine. All XP calculations must go through this engine. Do not calculate XP independently inside individual Compose screens.
+
+Use separate values for:
+
+- `lifetimeXp`: total XP earned over time; it never decreases.
+- `currentXp`: spendable XP balance; it increases when XP is awarded and decreases only when a reward is approved or an authorized coach adjustment is made.
+- `level`: derived from lifetime XP using the level table below.
+- `xpLedger`: an auditable record of every earning and spending event.
+
+If the existing schema uses different property names, preserve compatible names where practical and implement the same semantics without duplicating balances.
+
+### 3.1 Initial XP earning rules
+
+Implement these explicit initial rules consistently across the application.
+
+| Activity | XP rule | When awarded |
+|---|---|---|
+| Approved study record | 5 XP base + 1 XP per completed block of 10 questions | After coach approval |
+| Study question bonus | Maximum 20 additional XP per record | Included in the formula above |
+| Exam result entry | 10 XP | After a complete, valid, unique exam attempt is saved |
+| Exam analysis completion | Additional 5 XP | Once per exam attempt, after required analysis fields are completed |
+| Completed Pomodoro session | 3 XP per qualifying focus session | After a genuinely completed session |
+| First approved study record | 10 XP achievement bonus | Once only |
+| New badge achievement | 5 XP per eligible badge | Once per badge, when its real condition is met |
+| Daily consistency bonus | 5 XP | At most once per day when the defined consistency condition is met |
+
+**Study XP formula**
+
+For an approved study record:
+
+`studyXP = min(25, 5 + floor(questionCount / 10))`
+
+Examples:
+
+- 0 questions: 5 XP base, only if the record represents a valid approved non-question activity.
+- 10 questions: 6 XP.
+- 25 questions: 7 XP.
+- 50 questions: 10 XP.
+- 100 questions: 15 XP.
+- 200 or more questions: 25 XP maximum.
+
+For question-solving records, require a positive question count. For reading, topic revision, or other non-question activities, do not fabricate a question count. Use the 5 XP base only when the coach approves the valid record.
+
+The XP preview shown before submission must clearly state that the amount is provisional and depends on coach approval.
+
+Do not award study XP when a record is merely created, is pending approval, is rejected, or is awaiting revision.
+
+### 3.2 Daily XP cap
+
+Set a maximum of **100 XP per student per local calendar day** from ordinary activity-based awards, including study, exam entry, exam analysis, and Pomodoro rewards.
+
+Apply the cap transactionally when awarding XP, using the `Europe/Istanbul` timezone.
+
+Important rules:
+
+- The XP engine must determine the remaining daily allowance from actual ledger entries.
+- A new activity must not exceed the daily cap.
+- If an activity would exceed the cap, award only the remaining eligible amount, or zero when the cap has been reached.
+- Show the actual XP awarded in the success message.
+- Never display the theoretical maximum as though it were the amount actually awarded.
+- Record the original activity, calculated XP, awarded XP, and any cap adjustment in the ledger.
+- Manual coach adjustments must be separately authorized and auditable. They must not silently bypass business rules.
+- A daily bonus must not push the student's daily activity earnings beyond the cap.
+
+### 3.3 Prevent XP farming and duplicate awards
+
+A student must not be able to earn unlimited XP by repeatedly editing or recreating the same activity.
+
+Implement idempotent awards with unique source references, such as:
+
+- `STUDY_APPROVAL:<studyRecordId>`
+- `EXAM_ENTRY:<examAttemptId>`
+- `EXAM_ANALYSIS:<examAttemptId>`
+- `POMODORO:<sessionId>`
+- `BADGE:<badgeId>:<studentId>`
+- `DAILY_BONUS:<studentId>:<localDate>`
+
+Awarding an event twice must not increase XP twice.
+
+Editing a previously approved record must not automatically grant additional XP. If the business rules permit a legitimate correction, handle it through an auditable adjustment rather than a second award.
+
+### 3.4 Coach approval and XP transactions
+
+Study approval must atomically:
+
+1. Confirm the record is pending.
+2. Confirm the acting coach is authorized for that student.
+3. Confirm required evidence exists.
+4. Calculate the eligible XP.
+5. Apply the daily cap.
+6. Add one XP ledger entry.
+7. Update lifetime and current XP.
+8. Update the study status.
+9. Evaluate newly achieved levels and badges.
+10. Create the appropriate student notifications.
+
+All critical database changes must occur in one Room transaction wherever possible.
+
+Repeated approval taps must not award XP again.
+
+Rejection or revision requests must not award XP. Rejection must not subtract previously earned XP unless an explicit audited correction workflow is invoked.
+
+### 3.5 Reward spending
+
+Preserve the existing reward-request workflow:
+
+- Submitting a reward request does not deduct XP.
+- Approval deducts `currentXp` only.
+- `lifetimeXp` never decreases.
+- Rejection does not change XP or stock.
+- Approval checks the current balance and available stock again.
+- XP deduction, stock decrement, request status change, and ledger entry must be atomic.
+- Prevent double approval and double deduction.
+
+If the student's balance is insufficient at approval time, do not approve the request.
+
+### 3.6 XP history and balance presentation
+
+Add or improve the student's XP history screen with:
+
+- Earned XP.
+- Spent XP.
+- Current spendable balance.
+- Lifetime XP.
+- Activity description.
+- Related task, exam, badge, or reward.
+- Date and time.
+- Actual amount awarded or spent.
+
+Use distinct visual treatments for earned and spent XP. Every displayed balance must come from the real repository.
+
+---
+
+## 4. LEVEL PROGRESSION AND LIVE PROGRESS UI
+
+Implement a centralized, testable level configuration. Level is based on cumulative `lifetimeXp`, not the spendable balance.
+
+Use the following initial cumulative thresholds:
+
+| Level | Title | Required lifetime XP |
+|---|---|---:|
+| 1 | Yeni Başlangıç | 0 |
+| 2 | İlk Adım | 100 |
+| 3 | Disiplin Yolcusu | 250 |
+| 4 | İstikrarlı Öğrenci | 450 |
+| 5 | Bilgi Avcısı | 700 |
+| 6 | Odak Ustası | 1,000 |
+| 7 | Başarı Mimarı | 1,400 |
+| 8 | Zirveye Yakın | 1,900 |
+| 9 | Mahfaza Ustası | 2,500 |
+| 10 | Efsane | 3,200 |
+
+Keep thresholds in one centralized configuration so they can be tuned later without changing multiple screens.
+
+For the current level, calculate:
+
+- XP required to reach the next level.
+- XP earned within the current level.
+- XP remaining until the next level.
+- Percentage progress toward the next level.
+- Current level title.
+- Next level title.
+
+Use the actual threshold formula:
+
+`levelProgress = (lifetimeXp - currentLevelThreshold) / (nextLevelThreshold - currentLevelThreshold)`
+
+Clamp progress between 0 and 1. At the maximum level, show a completed progress state instead of dividing by a missing next-level threshold.
+
+### Student dashboard improvements
+
+Create a visually prominent level card containing:
+
+- Animated level emblem.
+- Current level and title.
+- Lifetime XP.
+- Animated progress bar.
+- “Bir sonraki seviyeye X XP kaldı” message.
+- Next-level preview, such as “Seviye 3 — Disiplin Yolcusu”.
+- A compact list of the next achievable rewards or badges, when real data exists.
+
+When the student levels up, show a tasteful celebratory overlay with confetti or particles, a brief scale animation, the new level, and the actual XP threshold reached.
+
+The celebration must appear once per level transition, not every time the dashboard recomposes.
+
+If the app is closed when a level is reached, record the transition or notification so the event is not silently lost.
+
+Do not reset progress when the student spends XP in the reward shop.
+
+### Student engagement components
+
+Use live, data-driven components for:
+
+- Today's approved study activity.
+- Weekly completion progress.
+- Current streak.
+- XP earned today.
+- Questions solved.
+- Pending study approvals.
+- Achievements and locked achievements.
+- Next level progress.
+
+All cards must show real Room-backed values. If no data exists, use an honest empty state rather than fabricated statistics.
+
+Create an achievement gallery with colorful unlocked badges and muted, grayscale locked badges. Locked badges must explain their actual unlock conditions.
+
+---
+
+## 5. MORE INTERACTIVE AND ANIMATED STUDENT EXPERIENCE
+
+Retain Mahfaza's Premium Academic Light identity and enhance its existing design.
+
+Use the existing palette consistently:
+
+- Background: `#F8FAFC` / `#F1F5F9`
+- Deep navy: `#233B5D` / `#172B4D`
+- Gold: `#D97706` / `#F59E0B`
+- Emerald: `#10B981`
+- Violet: `#7C3AED`
+- Teal: `#0F766E`
+- Success: `#059669`
+- Error: `#DC2626`
+
+Use white cards, restrained gradients, approximately 16dp rounded corners, soft elevation, readable typography, clear hierarchy, and appropriate contrast.
+
+Implement meaningful animations using Compose APIs where appropriate:
+
+- Fade and slide transitions for screen entry.
+- Animated progress indicators for weekly and level progress.
+- Animated counters for XP and study metrics.
+- Subtle card scale and ripple effects on interaction.
+- Animated badge unlocks.
+- Smooth expansion and collapse of details.
+- Animated tab and content transitions.
+- A level-up celebration that runs once per actual level transition.
+- Loading placeholders or restrained skeleton states where necessary.
+
+Use `animate*AsState`, `AnimatedVisibility`, `AnimatedContent`, `updateTransition`, or equivalent Compose APIs where they fit the existing codebase.
+
+Animation requirements:
+
+1. Keep animations short and responsive.
+2. Avoid continuous animations that drain battery.
+3. Do not create a new animation or random value on every recomposition.
+4. Respect accessibility and reduced-motion preferences where feasible.
+5. Keep scrolling and touch interactions smooth.
+6. Never delay a database update or navigation operation merely to finish an animation.
+7. Do not animate fake values that disagree with the stored data.
+
+### Student dashboard content
+
+Arrange the dashboard so that the most motivating information is visible first:
+
+1. Personalized greeting and daily motivation.
+2. Level and XP progression card.
+3. Daily study goal and weekly progress.
+4. Quick actions for adding a study record, entering an exam, opening the weekly program, and starting Pomodoro.
+5. Recent activity and approval statuses.
+6. Achievement gallery.
+7. Upcoming tasks.
+
+Use clear icons and distinct accent colors for different modules without turning the screen into a cluttered game interface.
+
+---
+
+## 6. COACH EXPERIENCE — PROFESSIONAL AND INTERACTIVE
+
+Apply the same visual polish to the coach dashboard without making it childish.
+
+Use animated cards and progress indicators for:
+
+- Total assigned students.
+- Pending study approvals.
+- Tasks awaiting action.
+- Recently entered exams.
+- Unread messages.
+- Students requiring attention, based on actual stored information.
+
+Create a clear visual hierarchy between urgent items, daily actions, and general statistics.
+
+### Coach interactions
+
+- Pending approval cards must animate into their final state after a successful action.
+- Approval and rejection buttons must display loading and completion states.
+- Prevent duplicate submissions while an operation is in progress.
+- Update counts and dashboard metrics from Room flows immediately after a transaction succeeds.
+- Provide clear confirmation messages and undo options only where the underlying operation can safely be reversed.
+- Use restrained color accents to distinguish pending, approved, rejected, and revision-requested statuses.
+- Add smooth drawer navigation and screen transitions.
+- Make notifications clickable and route them to the correct existing screen.
+- Preserve student ownership checks and the existing coach-student relationship rules.
+
+Do not use decorative statistics, simulated approval counts, or fabricated student activity.
+
+---
+
+## 7. REMOVE “GELİŞİM RAPORU” FROM THE STUDENT EXPERIENCE
+
+The development report is a coach-only feature.
+
+Audit the student's entire experience and remove the development report from:
+
+- Student navigation drawer.
+- Student dashboard quick actions.
+- Student profile.
+- Student menus and secondary actions.
+- Student route registrations that expose the report.
+- Student-specific screen shortcuts or cards.
+
+Do not simply hide the menu label while leaving an accessible student route.
+
+Keep the coach's ability to review student development and export reports as PDFs. Preserve the existing Student360/reporting implementation and its data unless a separate, verified issue requires a change.
+
+If the student has a separate general statistics or XP history screen, keep it if it is not the coach-only development report.
+
+Ensure role-specific navigation remains separated. Do not map coach dashboard routes and student portfolio routes to the same screen.
+
+---
+
+## 8. DATA INTEGRITY, PERFORMANCE, AND ACCESSIBILITY
+
+- Use Room `Flow` and `StateFlow` to observe data changes.
+- Use repositories and ViewModels for business logic.
+- Do not access Room directly from Composable functions.
+- Run expensive work off the main thread.
+- Use transactions for multi-record XP, reward, and approval operations.
+- Preserve existing data with non-destructive migrations.
+- Avoid duplicate notification creation and duplicate XP awards.
+- Ensure logout clears the active session and navigation stack without deleting stored user records.
+- Ensure notification navigation respects the current role and record ownership.
+- Use stable keys in lists and avoid unnecessary recomposition.
+- Provide content descriptions for important icons and accessible labels for interactive controls.
+- Keep all touch targets practical for mobile use.
+- Add meaningful error handling for unavailable records, invalid data, and database failures.
+
+Do not introduce a backend dependency to make a local notification appear to work.
+
+---
+
+## 9. REQUIRED AUTOMATED TESTS
+
+Add or update unit tests for the existing project test framework. Test business logic separately from UI animations.
+
+### Notification tests
+
+- Study submission creates exactly one coach notification.
+- Study approval creates exactly one student notification.
+- Rejection creates the correct student notification.
+- A new coach task creates the correct student notification.
+- A new student message creates the correct recipient notification.
+- Reading a notification updates its read state.
+- Opening a screen or recomposing does not create notifications.
+- Reprocessing the same event does not create duplicates.
+- Notification taps navigate to the correct role-specific destination.
+
+### XP tests
+
+- Study XP formula returns the correct values for 0, 10, 25, 50, 100, and 200 questions.
+- A pending study record earns no XP.
+- Approval awards XP once.
+- Repeated approval does not award XP twice.
+- Rejection and revision requests award no XP.
+- Daily XP cap is respected.
+- The daily cap uses the `Europe/Istanbul` calendar date.
+- Duplicate exam entry awards no duplicate XP.
+- Exam analysis bonus is awarded only once.
+- An incomplete exam analysis earns no analysis bonus.
+- Pomodoro cannot award XP twice for the same session.
+- Badge bonus is awarded only once per badge.
+- Spending XP does not decrease lifetime XP.
+- Reward request creation does not deduct XP.
+- Reward approval deducts XP and stock exactly once.
+- Insufficient balance prevents reward approval.
+- Negative current XP is impossible.
+
+### Level tests
+
+- Level 1 starts at 0 lifetime XP.
+- Each threshold maps to the correct level.
+- XP remaining to the next level is correct.
+- Progress is clamped between 0 and 1.
+- Spending XP does not lower the level.
+- A level-up event is generated only once for a real transition.
+- The maximum level does not cause division-by-zero or invalid progress.
+
+### Navigation and UI tests
+
+- The student cannot access the coach-only development report.
+- The coach can still access development reporting.
+- Student and coach dashboards remain distinct.
+- Notification badges reflect actual unread notifications.
+- Level progress uses actual XP.
+- Empty states render correctly.
+- Animations do not create duplicate business operations.
+
+Run the available test suite and build task. If the environment does not support a particular test, state that explicitly rather than claiming success.
+
+---
+
+## 10. FINAL VERIFICATION AND DELIVERY REPORT
+
+After implementation:
+
+1. Review all modified files for duplicate logic, stale imports, unused code, and inconsistent naming.
+2. Verify that every XP award uses the central XP engine.
+3. Verify that every notification originates from a genuine business event.
+4. Verify the level calculation and next-level progress with boundary values.
+5. Verify the coach-only development report restriction.
+6. Run the actual available Gradle build and test commands.
+7. Fix any compilation errors and regressions caused by these changes.
+8. Do not reset Room data or remove existing user records during verification.
+
+Return a concise but complete report in Turkish containing:
+
+- Files changed and the purpose of each major change.
+- Notification events implemented.
+- Final XP rules and level thresholds.
+- Confirmation of how duplicate XP and notification events are prevented.
+- Build command and its actual result.
+- Test command and the actual number of passed or failed tests, if available.
+- Any remaining limitations, especially the distinction between local notifications and cross-device push notifications.
+
+**Execution priority:** First audit the current code, then implement the integrated changes, then test. Do not return merely a plan, design proposal, or list of files to edit. Make the changes in the existing project and report only what was actually completed and verified.
+
+Bu komutla XP matematiği başlangıç için netleşiyor: çalışma onayı 5–25 XP, deneme girişi 10 XP, tamamlanmış deneme analizi +5 XP, tamamlanmış Pomodoro 3 XP ve günlük aktivite kazancı en fazla 100 XP. Seviye hesabı harcanabilir bakiyeden değil, ömür boyu kazanılan XP'den yapılacak. Böylece öğrenci ödül aldığında seviyesi düşmeyecek.
+
+Önemli teknik sınır: Mevcut uygulama yerel Room veritabanıyla çalıştığı için bildirim merkezi aynı cihazda kalıcı çalışabilir. Koçun başka cihazından öğrenciye anlık push bildirim göndermek ise backend ve push altyapısı gerektirir; bu komut böyle bir altyapı varmış gibi davranılmasını engelliyor.

@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile representing a student, coach, or administrator.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID matching auth UID" },
+        "name": { "type": "string", "description": "Display name of user" },
+        "email": { "type": "string", "description": "Email address" },
+        "role": { "type": "string", "enum": ["STUDENT", "COACH", "ADMIN"], "description": "User role" },
+        "educationLevel": { "type": "string", "description": "Academic target level (LGS_8TH, YKS_TYT_AYT, KPSS)" },
+        "packageId": { "type": "string", "description": "Subscribed package ID" },
+        "currentXp": { "type": "integer", "description": "Current spendable XP" },
+        "lifetimeXp": { "type": "integer", "description": "Total earned XP" },
+        "streak": { "type": "integer", "description": "Active day streak" },
+        "studentCapacity": { "type": "integer", "description": "Max capacity if coach" },
+        "assignedCoachId": { "type": "string", "description": "Assigned coach ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp via serverTimestamp()" }
+      },
+      "required": ["id", "name", "email", "role", "createdAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Daily study or target task assigned to a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Task identifier" },
+        "userId": { "type": "string", "description": "Owning student UID" },
+        "title": { "type": "string", "description": "Task title" },
+        "subject": { "type": "string", "description": "Academic subject" },
+        "topic": { "type": "string", "description": "Topic within subject" },
+        "targetQuestionCount": { "type": "integer", "description": "Target question count" },
+        "completedQuestionCount": { "type": "integer", "description": "Completed question count" },
+        "isCompleted": { "type": "boolean", "description": "Whether task is completed by student" },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"], "description": "Priority level" },
+        "xpReward": { "type": "integer", "description": "XP reward for completing task" },
+        "dayOfWeek": { "type": "integer", "description": "Day of week (1 to 7)" },
+        "isApproved": { "type": "boolean", "description": "Coach/Admin approval flag" },
+        "isRejected": { "type": "boolean", "description": "Coach/Admin rejection flag" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "userId", "title", "subject", "isCompleted", "createdAt"]
+    },
+    "ExamResult": {
+      "title": "ExamResult",
+      "description": "Practice exam outcome record for a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Exam result ID" },
+        "userId": { "type": "string", "description": "Student UID" },
+        "name": { "type": "string", "description": "Name of exam" },
+        "date": { "type": "string", "description": "Date of exam (YYYY-MM-DD)" },
+        "educationLevel": { "type": "string", "description": "Level enum value" },
+        "totalNet": { "type": "number", "description": "Total net score" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "userId", "name", "date", "createdAt"]
+    },
+    "XPTransaction": {
+      "title": "XPTransaction",
+      "description": "Ledger entry for student XP gain, spend, or adjustment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction ID" },
+        "userId": { "type": "string", "description": "Student UID" },
+        "amount": { "type": "integer", "description": "XP amount" },
+        "type": { "type": "string", "enum": ["EARNED", "SPENT", "ADJUSTED"], "description": "Transaction type" },
+        "reason": { "type": "string", "description": "Reason for XP movement" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Transaction timestamp" }
+      },
+      "required": ["id", "userId", "amount", "type", "reason", "createdAt"]
+    },
+    "Reward": {
+      "title": "Reward",
+      "description": "Store reward item available to students for XP exchange.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Reward ID" },
+        "name": { "type": "string", "description": "Reward item name" },
+        "description": { "type": "string", "description": "Description of reward" },
+        "xpCost": { "type": "integer", "description": "XP cost to redeem" },
+        "stock": { "type": "integer", "description": "Available stock quantity" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "name", "xpCost", "stock", "createdAt"]
+    },
+    "RewardRequest": {
+      "title": "RewardRequest",
+      "description": "Student redemption request for a store reward.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "studentId": { "type": "string", "description": "Requesting student UID" },
+        "studentName": { "type": "string", "description": "Requesting student name" },
+        "rewardId": { "type": "string", "description": "Reward ID" },
+        "rewardName": { "type": "string", "description": "Reward name" },
+        "xpCost": { "type": "integer", "description": "XP cost redeemed" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"], "description": "Approval status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "studentId", "rewardId", "xpCost", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles partitioned by UID"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Tasks owned by student"
+    },
+    "/users/{userId}/exams/{examId}": {
+      "schema": { "$ref": "#/entities/ExamResult" },
+      "description": "Exam results owned by student"
+    },
+    "/users/{userId}/xp_transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/XPTransaction" },
+      "description": "XP transactions log for student"
+    },
+    "/rewards/{rewardId}": {
+      "schema": { "$ref": "#/entities/Reward" },
+      "description": "Reward catalog manageable by admin"
+    },
+    "/reward_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/RewardRequest" },
+      "description": "Student reward requests"
+    }
+  }
+}

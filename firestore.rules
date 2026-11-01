@@ -1,0 +1,169 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Administrator verification with email verification and verified Google account check
+    function isAdmin() {
+      return isSignedIn() &&
+             ('email' in request.auth.token) &&
+             (request.auth.token.email in ['serkankocak551@gmail.com']) &&
+             (!('email_verified' in request.auth.token) || request.auth.token.email_verified == true);
+    }
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.role is string && (data.role in ['STUDENT', 'COACH', 'ADMIN']) &&
+             (!('educationLevel' in data) || data.educationLevel == null || (data.educationLevel is string && data.educationLevel.size() <= 50)) &&
+             (!('packageId' in data) || (data.packageId is string && data.packageId.size() <= 50)) &&
+             (!('currentXp' in data) || data.currentXp is int) &&
+             (!('lifetimeXp' in data) || data.lifetimeXp is int) &&
+             (!('streak' in data) || data.streak is int) &&
+             (!('studentCapacity' in data) || data.studentCapacity is int) &&
+             (!('assignedCoachId' in data) || data.assignedCoachId == null || (data.assignedCoachId is string && data.assignedCoachId.size() <= 128));
+    }
+
+    function isValidTask(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() <= 100 &&
+             (!('topic' in data) || (data.topic is string && data.topic.size() <= 100)) &&
+             (!('targetQuestionCount' in data) || data.targetQuestionCount is int) &&
+             (!('completedQuestionCount' in data) || data.completedQuestionCount is int) &&
+             data.isCompleted is bool &&
+             (!('priority' in data) || (data.priority in ['LOW', 'MEDIUM', 'HIGH'])) &&
+             (!('xpReward' in data) || data.xpReward is int) &&
+             (!('dayOfWeek' in data) || data.dayOfWeek is int) &&
+             (!('isApproved' in data) || data.isApproved is bool) &&
+             (!('isRejected' in data) || data.isRejected is bool);
+    }
+
+    function isValidExam(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             data.date is string && data.date.size() <= 30 &&
+             (!('educationLevel' in data) || (data.educationLevel is string && data.educationLevel.size() <= 50)) &&
+             (!('totalNet' in data) || (data.totalNet is number));
+    }
+
+    function isValidXPTransaction(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.amount is int &&
+             (data.type in ['EARNED', 'SPENT', 'ADJUSTED']) &&
+             data.reason is string && data.reason.size() <= 200;
+    }
+
+    function isValidReward(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             data.xpCost is int && data.xpCost >= 0 &&
+             data.stock is int && data.stock >= 0;
+    }
+
+    function isValidRewardRequest(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.studentId is string && data.studentId.size() <= 128 &&
+             data.rewardId is string && data.rewardId.size() <= 128 &&
+             (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 100)) &&
+             (!('rewardName' in data) || (data.rewardName is string && data.rewardName.size() <= 100)) &&
+             data.xpCost is int && data.xpCost >= 0 &&
+             (data.status in ['PENDING', 'APPROVED', 'REJECTED']);
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Users collection partitioned by UID
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isOwner(userId) &&
+        incoming().id == userId &&
+        isValidUser(incoming());
+
+      allow update: if (isOwner(userId) || isAdmin()) &&
+        isValidUser(incoming());
+
+      allow delete: if isAdmin();
+
+      // Nested student tasks
+      match /tasks/{taskId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) || isAdmin()) &&
+                         incoming().userId == userId &&
+                         isValidTask(incoming());
+        allow update: if (isOwner(userId) || isAdmin()) &&
+                         incoming().userId == existing().userId &&
+                         isValidTask(incoming());
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Nested student exam results
+      match /exams/{examId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) || isAdmin()) &&
+                         incoming().userId == userId &&
+                         isValidExam(incoming());
+        allow update: if (isOwner(userId) || isAdmin()) &&
+                         incoming().userId == existing().userId &&
+                         isValidExam(incoming());
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Nested student XP transactions (immutable ledger)
+      match /xp_transactions/{transactionId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) || isAdmin()) &&
+                         incoming().userId == userId &&
+                         isValidXPTransaction(incoming());
+        allow update, delete: if false;
+      }
+    }
+
+    // Global store rewards
+    match /rewards/{rewardId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Reward redemption requests
+    match /reward_requests/{requestId} {
+      allow get: if isSignedIn() && (request.auth.uid == resource.data.studentId || isAdmin());
+      allow list: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().studentId &&
+                       incoming().status == 'PENDING' &&
+                       isValidRewardRequest(incoming());
+      allow update: if isAdmin() && isValidRewardRequest(incoming()) &&
+                       incoming().studentId == existing().studentId;
+      allow delete: if isAdmin();
+    }
+  }
+}

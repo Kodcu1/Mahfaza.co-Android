@@ -1,0 +1,8 @@
+{
+  "name": "Mahfaza.co",
+  "description": "Planını Kur. Disiplinini Koru. Hedefine Ulaş. Mahfaza.co ile LGS ve YKS süreçlerini profesyonelce yönet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

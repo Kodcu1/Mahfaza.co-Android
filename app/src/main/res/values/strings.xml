@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Mahfaza.co</string>
+    <string name="daily_tasks">Günlük Görevler</string>
+    <string name="xp_tracking">XP Takibi</string>
+    <string name="exam_calculation">Deneme Hesaplama</string>
+    <string name="weekly_program_view">Haftalık Program</string>
+    <string name="choose_this_plan">Bu Paketi Seç</string>
+    <string name="cancel">İptal</string>
+    <string name="save">Kaydet</string>
+    <string name="add_new_exam">Yeni Deneme Sınavı Ekle</string>
+    <string name="expected_xp_reward">Kazanılacak XP</string>
+    <string name="calculated_total_net">Hesaplanan Toplam Net</string>
+    <string name="subject">Ders / Branş</string>
+    <string name="correct">Doğru</string>
+    <string name="wrong">Yanlış</string>
+    <string name="blank">Boş</string>
+    <string name="coach">Koç</string>
+    <string name="student">Öğrenci</string>
+    <string name="register">Kayıt Ol</string>
+    <string name="login">Giriş Yap</string>
+    <string name="logout">Çıkış Yap</string>
+</resources>
